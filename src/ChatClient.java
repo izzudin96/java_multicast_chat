@@ -2,8 +2,8 @@ import java.net.*;
 import java.io.*;
 
 class ChatClient {
-    private int port = 40202;
-    String multicast_address = "239.0.202.1";
+    private static int port = 40202;
+    private static String multicast_address = "239.0.202.1";
 
     /**
      * Entry of the program.
@@ -11,16 +11,16 @@ class ChatClient {
      * @param args
      */
     public static void main(String[] args) {
+        System.out.println("System client on " + multicast_address + ":" + port);
+        while(true) {
             try {
                 System.setProperty("java.net.preferIPV4Stack", "true");
                 ChatClient chatClient = new ChatClient();
-
-                System.out.println("Starting chat client...");
-
                 chatClient.startClient();
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        }
     }
 
     /**
@@ -31,26 +31,19 @@ class ChatClient {
     public void startClient() throws Exception {
         InetAddress group = InetAddress.getByName(multicast_address);
         MulticastSocket multicastSocket = new MulticastSocket(port);
-        System.out.println("Started client on address " + multicast_address + ":" + port + "...");
         multicastSocket.joinGroup(group);
-        System.out.println("Joined multicast group...");
 
+        ReadThread readThread = new ReadThread(group, port);
+        readThread.start();
 
-            ReadThread readThread = new ReadThread(group, port);
-            readThread.start();
-            System.out.println("Read thread spawned!");
-        while (true) {
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in));
-            System.out.print("Your message: ");
-            String inputMessage = bufferedReader.readLine();
-            byte[] message = inputMessage.getBytes();
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in));
+        String inputMessage = bufferedReader.readLine();
+        byte[] message = inputMessage.getBytes();
 
-            DatagramPacket packet = new DatagramPacket(message, message.length, group, port);
-            multicastSocket.send(packet);
-            System.out.println("Message sent.");
-        }
+        DatagramPacket packet = new DatagramPacket(message, message.length, group, port);
+        multicastSocket.send(packet);
 
-//        multicastSocket.close();
+        multicastSocket.close();
     }
 }
 
@@ -76,7 +69,7 @@ class ReadThread extends Thread {
             read.receive(receivedPacket);
 
             String receivedMessage = new String(receivedPacket.getData());
-            System.out.println(receivedPacket.getAddress().toString() + " said: " + receivedMessage);
+            System.out.println(receivedPacket.getAddress().toString() + ": " + receivedMessage);
         } catch (Exception e) {
             e.printStackTrace();
         }
