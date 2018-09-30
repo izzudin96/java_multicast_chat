@@ -2,7 +2,7 @@ import java.net.*;
 import java.io.*;
 
 class ChatClient {
-    private static int port = 40202;
+    private static int port = 32770;
     private static String multicast_address = "239.0.202.1";
 
     /**
@@ -12,7 +12,6 @@ class ChatClient {
      */
     public static void main(String[] args) {
         System.out.println("System client on " + multicast_address + ":" + port);
-        while(true) {
             try {
                 System.setProperty("java.net.preferIPV4Stack", "true");
                 ChatClient chatClient = new ChatClient();
@@ -20,7 +19,6 @@ class ChatClient {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        }
     }
 
     /**
@@ -32,18 +30,17 @@ class ChatClient {
         InetAddress group = InetAddress.getByName(multicast_address);
         MulticastSocket multicastSocket = new MulticastSocket(port);
         multicastSocket.joinGroup(group);
-
-        ReadThread readThread = new ReadThread(group, port);
+        ReadThread readThread = new ReadThread(group, port, multicastSocket);
         readThread.start();
+	while(true) {
+		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in));
+        	String inputMessage = bufferedReader.readLine();
+	        byte[] message = inputMessage.getBytes();
 
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in));
-        String inputMessage = bufferedReader.readLine();
-        byte[] message = inputMessage.getBytes();
+        	DatagramPacket packet = new DatagramPacket(message, message.length, group, port);
+        	multicastSocket.send(packet);
+	}
 
-        DatagramPacket packet = new DatagramPacket(message, message.length, group, port);
-        multicastSocket.send(packet);
-
-        multicastSocket.close();
     }
 }
 
@@ -53,14 +50,17 @@ class ChatClient {
 class ReadThread extends Thread {
     InetAddress group;
     int port;
+	MulticastSocket multicastSocket;
 
-    ReadThread(InetAddress group, int port) {
+    ReadThread(InetAddress group, int port, MulticastSocket multicastSocket) {
         this.group = group;
         this.port = port;
+	this.multicastSocket = multicastSocket;
     }
 
     public void run() {
         try {
+	while(true) {
             MulticastSocket read = new MulticastSocket(port);
             read.joinGroup(group);
 
@@ -70,6 +70,7 @@ class ReadThread extends Thread {
 
             String receivedMessage = new String(receivedPacket.getData());
             System.out.println(receivedPacket.getAddress().toString() + ": " + receivedMessage);
+	}
         } catch (Exception e) {
             e.printStackTrace();
         }
